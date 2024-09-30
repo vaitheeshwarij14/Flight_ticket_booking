@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Available Flights</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Available Flights from {{ user_data.origin }} to {{ user_data.destination }}</h1>
+        <div class="section">
+            <h2>Converted Text:</h2>
+            <p>{{ text }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('select_flight') }}">
+            <div class="section">
+                <h2>Available Flights:</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Select</th>
+                            <th>Flight Number</th>
+                            <th>Flight Name</th>
+                            <th>Departure Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for flight in flights %}
+                        <tr>
+                            <td><input type="radio" name="flight" value="{{ flight.flight_number }}" required></td>
+                            <td>{{ flight.flight_number }}</td>
+                            <td>{{ flight.flight_name }}</td>
+                            <td>{{ flight.departure_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="section">
+                <label for="email">Recipient Email Address:</label>
+                <input type="email" name="email" id="email" placeholder="Enter recipient's email" required>
+            </div>
+            <button type="submit">Book Flight and Send Confirmation</button>
+        </form>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="flashes">
+              {% for message in messages %}
+                <li>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>

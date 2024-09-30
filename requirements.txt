@@ -1,0 +1,6 @@
+Flask
+SpeechRecognition
+requests
+python-dotenv
+soundfile
+numpy

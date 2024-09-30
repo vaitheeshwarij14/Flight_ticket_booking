@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Confirmation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Booking Confirmed!</h1>
+        <p>A confirmation email has been sent to <strong>{{ recipient_email }}</strong>.</p>
+        <div class="section">
+            <h2>Itinerary Details:</h2>
+            <ul>
+                <li><strong>Username:</strong> {{ itinerary.username }}</li>
+                <li><strong>Flight Number:</strong> {{ itinerary.flight_number }}</li>
+                <li><strong>Flight Name:</strong> {{ itinerary.flight_name }}</li>
+                <li><strong>Route:</strong> {{ itinerary.origin_to_destination }}</li>
+                <li><strong>Departure Date:</strong> {{ itinerary.departure_date }}</li>
+                <li><strong>Seat Preference:</strong> {{ itinerary.seat_preference }}</li>
+                <li><strong>Meal Preference:</strong> {{ itinerary.meal_preference }}</li>
+            </ul>
+        </div>
+        <a href="{{ url_for('upload_audio') }}">Book Another Flight</a>
+    </div>
+</body>
+</html>
