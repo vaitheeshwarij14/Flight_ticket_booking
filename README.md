@@ -32,8 +32,9 @@ Before you begin, ensure you have the following installed:
    - Add your credentials in the following format:
 
      ```plaintext
-     API_KEY=your_api_key
-     ANOTHER_SECRET=your_other_secret
+     SENDER_EMAIL=<Sender_Email_id>
+     SENDER_PASSWORD=<Sender_password>
+
      ```
 
 ## Usage
@@ -55,10 +56,3 @@ Below are some images related to the project:
 ![Image 3](images/image3.png)
 ![Image 4](images/image4.png)
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a pull request or open an issue.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
