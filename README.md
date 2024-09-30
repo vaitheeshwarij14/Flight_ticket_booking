@@ -52,11 +52,21 @@ Before you begin, ensure you have the following installed:
 Below are some images related to the project:
 
 Add the voice file
+
 ![Image 1](images/image1.png)
+
+
 Enter your Email address and click on the flight you want to book
+
 ![Image 2](images/image2.png)
+
+
 Confirmation Message
+
 ![Image 3](images/image3.png)
+
+
 Confirmation Email 
+
 ![Image 4](images/image4.png)
 
