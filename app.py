@@ -1,5 +1,4 @@
 import os
-import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -9,7 +8,7 @@ from werkzeug.utils import secure_filename
 import speech_recognition as sr
 import requests
 import soundfile as sf
-import openai  # Importing OpenAI API
+from transformers import pipeline
 
 app = Flask(__name__)
 app.secret_key = 'pgay wtpq kpiq vlze'  # Replace with a secure secret key
@@ -30,11 +29,9 @@ if os.path.exists(dotenv_path):
 else:
     print("Warning: 'secure.env' file not found. Email functionality will not work.")
 
-# OpenAI API key
-openai.api_key = os.getenv('OPENAI_API_KEY')
-
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Function to convert any audio file to WAV format
 def convert_to_wav(audio_file_path):
@@ -47,21 +44,15 @@ def convert_to_wav(audio_file_path):
         print(f"Error converting audio file: {e}")
         return None
 
-# Function to convert voice to text using an LLM (like GPT-4)
-def voice_to_text_with_llm(audio_file_path):
+# Function to convert voice to text
+def voice_to_text(audio_file_path):
     recognizer = sr.Recognizer()
     with sr.AudioFile(audio_file_path) as source:
         audio_data = recognizer.record(source)
         try:
-            # Convert speech to text using Google Speech Recognition
-            initial_text = recognizer.recognize_google(audio_data)
-            print("\nInitial Converted Text:\n", initial_text)
-
-            # Send text to LLM (e.g., GPT-4) for refinement and processing
-            refined_text = call_llm_for_text_enhancement(initial_text)
-            print("\nRefined Text from LLM:\n", refined_text)
-
-            return refined_text
+            text = recognizer.recognize_google(audio_data)
+            print("\nConverted Text:\n", text)
+            return text
         except sr.UnknownValueError:
             print("Google Speech Recognition could not understand audio")
             return None
@@ -69,45 +60,35 @@ def voice_to_text_with_llm(audio_file_path):
             print(f"Could not request results from Google Speech Recognition service; {e}")
             return None
 
-# Function to call an LLM (GPT-4) to refine the text
-def call_llm_for_text_enhancement(text):
-    try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",  # Or use "gpt-4" if available
-            prompt=f"Please enhance and format the following text for better clarity and detail: {text}",
-            max_tokens=150,
-            n=1,
-            stop=None,
-            temperature=0.5
-        )
-        return response.choices[0].text.strip()
-    except Exception as e:
-        print(f"Error calling LLM: {e}")
-        return text
-
-# Function to extract user data from the refined text
+# Function to extract user data using Hugging Face transformers
 def extract_user_data(text):
-    patterns = {
-        'username': r'(?:my name is|username is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:and|I|born|,|\.|$))',
-        'dob': r'(?:born on|date of birth is|date of birth)\s*([A-Za-z]+\s\d{1,2}(?:st|nd|rd|th)?(?:,|\s)\s*\d{4})',
-        'origin_to_destination': r'(?:from|origin is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\s+to\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:my|passport|I)|\.|\s|$)',
-        'passport_number': r'(?:passport number is|passport number:)\s*([A-Za-z0-9]+)',
-        'seat_preference': r'(?:seat preference is|prefer a)\s*(window|aisle|middle)(?:\s+seat)?',
-        'meal_preference': r'(?:meal preference is|would like)\s*([A-Za-z\s]+?)(?=\s+(?:during|to|carry|number|kilograms|$))'
+    nlp = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english")
+    entities = nlp(text)
+
+    user_data = {
+        'username': None,
+        'dob': None,
+        'origin': None,
+        'destination': None,
+        'passport_number': None,
+        'seat_preference': None,
+        'meal_preference': None
     }
 
-    user_data = {}
-    for field, pattern in patterns.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            if field == 'origin_to_destination':
-                user_data['origin'] = match.group(1).strip()
-                user_data['destination'] = match.group(2).strip()
-            else:
-                value = match.group(1).strip()
-                user_data[field] = value
-        else:
-            user_data[field] = None
+    for entity in entities:
+        if entity['entity'] == 'B-PER':
+            user_data['username'] = entity['word']
+        elif entity['entity'] == 'B-DATE':
+            user_data['dob'] = entity['word']
+        # Add other entity extractions based on your model and requirements here
+
+    # Custom parsing for origin and destination
+    parts = text.split()
+    for i, part in enumerate(parts):
+        if part.lower() in ["from", "origin"]:
+            user_data['origin'] = parts[i + 1]  # Next part is the origin
+        elif part.lower() == "to":
+            user_data['destination'] = parts[i + 1]  # Next part is the destination
 
     return user_data
 
@@ -142,6 +123,46 @@ def get_flights(origin, destination):
         print(f"Error fetching flight data: {e}")
         return []
 
+# Function to send confirmation email
+def send_confirmation_email(sender_email, sender_password, recipient_email, itinerary_details):
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = "Flight Booking Confirmation"
+        message["From"] = sender_email
+        message["To"] = recipient_email
+
+        text = f"""\
+Dear {itinerary_details['username']},
+
+Your flight has been successfully booked with the following details:
+
+Flight Number: {itinerary_details['flight_number']}
+Flight Name: {itinerary_details['flight_name']}
+Origin to Destination: {itinerary_details['origin_to_destination']}
+Departure Date: {itinerary_details['departure_date']}
+Seat Preference: {itinerary_details['seat_preference']}
+Meal Preference: {itinerary_details['meal_preference']}
+
+Thank you for choosing our service!
+
+Best regards,
+Flight Booking Team
+"""
+        part = MIMEText(text, "plain")
+        message.attach(part)
+
+        server.sendmail(sender_email, recipient_email, message.as_string())
+        server.quit()
+        print("Confirmation email sent successfully!")
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
 # Route for Home Page - Upload Audio
 @app.route('/', methods=['GET', 'POST'])
 def upload_audio():
@@ -165,8 +186,8 @@ def upload_audio():
                 flash('Failed to convert audio file to WAV.')
                 return redirect(request.url)
 
-            # Convert voice to text using LLM model
-            text = voice_to_text_with_llm(wav_file_path)
+            # Convert voice to text
+            text = voice_to_text(wav_file_path)
             if not text:
                 flash('Could not convert audio to text.')
                 return redirect(request.url)
@@ -215,95 +236,41 @@ def select_flight():
             flash("Invalid email address.")
             return redirect(request.url)
 
-        session['selected_flight'] = selected_flight
-        session['recipient_email'] = recipient_email
+        # Retrieve flight details
+        available_flights = session.get('available_flights', [])
+        selected_flight_details = next((flight for flight in available_flights if flight.get('flight_number') == selected_flight), None)
 
-        # Redirect to confirmation page
-        return redirect(url_for('confirmation'))
+        if not selected_flight_details:
+            flash("Selected flight not found.")
+            return redirect(request.url)
 
-    # Retrieve session data
-    available_flights = session.get('available_flights', [])
-    user_data = session.get('user_data', {})
+        # Prepare itinerary details
+        user_data = session.get('user_data', {})
+        itinerary_details = {
+            'username': user_data.get('username', 'Unknown'),
+            'flight_number': selected_flight_details.get('flight_number', 'Unknown'),
+            'flight_name': selected_flight_details.get('flight_name', 'Unknown'),
+            'origin_to_destination': f"{user_data.get('origin')} to {user_data.get('destination')}",
+            'departure_date': selected_flight_details.get('departure_date', 'Unknown'),
+            'seat_preference': selected_flight_details.get('seat_preference', 'Unknown'),
+            'meal_preference': selected_flight_details.get('meal_preference', 'Unknown'),
+        }
 
-    return render_template('flights.html', flights=available_flights, user_data=user_data)
+        # Send confirmation email
+        sender_email = os.getenv('EMAIL_USER')
+        sender_password = os.getenv('EMAIL_PASS')
 
-# Route for flight confirmation and email sending
-@app.route('/confirmation', methods=['GET', 'POST'])
-def confirmation():
-    selected_flight = session.get('selected_flight', None)
-    user_data = session.get('user_data', {})
-    recipient_email = session.get('recipient_email', None)
+        email_sent = send_confirmation_email(sender_email, sender_password, recipient_email, itinerary_details)
 
-    # Create itinerary from selected flight and user data
-    itinerary = {
-        'username': user_data.get('username'),
-        'flight_number': selected_flight,  # Assuming selected_flight contains the flight number
-        'flight_name': "Flight XYZ",  # Placeholder for flight name, adjust accordingly
-        'origin_to_destination': f"{user_data.get('origin')} to {user_data.get('destination')}",
-        'departure_date': "2024-10-01",  # Placeholder for departure date, adjust accordingly
-        'seat_preference': user_data.get('seat_preference', 'N/A'),
-        'meal_preference': user_data.get('meal_preference', 'N/A'),
-    }
-
-    if request.method == 'POST':
-        # Send flight details to recipient email
-        if send_flight_details_email(user_data, itinerary, recipient_email):
-            flash('Email sent successfully!')
+        if email_sent:
+            flash("Flight booked successfully! A confirmation email has been sent.")
         else:
-            flash('Failed to send email.')
+            flash("Failed to send confirmation email.")
 
         return redirect(url_for('upload_audio'))
 
-    return render_template('confirmation.html', itinerary=itinerary, recipient_email=recipient_email)
-
-# Function to send flight details via email
-def send_flight_details_email(user_data, itinerary, recipient_email):
-    try:
-        email_user = os.getenv('EMAIL_USER')
-        email_password = os.getenv('EMAIL_PASSWORD')
-        email_host = os.getenv('EMAIL_HOST')
-        email_port = os.getenv('EMAIL_PORT')
-
-        if not all([email_user, email_password, email_host, email_port]):
-            print("Email configuration missing in secure.env")
-            return False
-
-        msg = MIMEMultipart()
-        msg['From'] = email_user
-        msg['To'] = recipient_email
-        msg['Subject'] = 'Flight Booking Confirmation'
-
-        body = f"""
-        Dear {itinerary['username']},
-
-        Your flight booking is confirmed. Below are the details:
-
-        Flight Number: {itinerary['flight_number']}
-        Flight Name: {itinerary['flight_name']}
-        Route: {itinerary['origin_to_destination']}
-        Departure Date: {itinerary['departure_date']}
-        Passport Number: {user_data['passport_number']}
-        Seat Preference: {itinerary['seat_preference']}
-        Meal Preference: {itinerary['meal_preference']}
-
-        Thank you for booking with us!
-
-        Best regards,
-        The Flight Team
-        """
-
-        msg.attach(MIMEText(body, 'plain'))
-
-        server = smtplib.SMTP(email_host, int(email_port))
-        server.starttls()
-        server.login(email_user, email_password)
-        server.sendmail(email_user, recipient_email, msg.as_string())
-        server.quit()
-
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
+    available_flights = session.get('available_flights', [])
+    return render_template('select_flight.html', flights=available_flights)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='127.0.0.1', port=5000)
