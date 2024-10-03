@@ -1,4 +1,5 @@
 import os
+import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -8,9 +9,8 @@ from werkzeug.utils import secure_filename
 import speech_recognition as sr
 import requests
 import soundfile as sf
-from transformers import pipeline
 
-app = Flask(__name__)
+app = Flask(_name_)
 app.secret_key = 'pgay wtpq kpiq vlze'  # Replace with a secure secret key
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Max 16MB upload
@@ -23,7 +23,7 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 # Load environment variables
-dotenv_path = os.path.join(os.path.dirname(__file__), 'secure.env')
+dotenv_path = os.path.join(os.path.dirname(_file_), 'secure.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 else:
@@ -60,35 +60,29 @@ def voice_to_text(audio_file_path):
             print(f"Could not request results from Google Speech Recognition service; {e}")
             return None
 
-# Function to extract user data using Hugging Face transformers
+# Function to extract user data from text with improved regex patterns
 def extract_user_data(text):
-    nlp = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english")
-    entities = nlp(text)
-
-    user_data = {
-        'username': None,
-        'dob': None,
-        'origin': None,
-        'destination': None,
-        'passport_number': None,
-        'seat_preference': None,
-        'meal_preference': None
+    patterns = {
+        'username': r'(?:my name is|username is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:and|I|born|,|\.|$))',
+        'dob': r'(?:born on|date of birth is|date of birth)\s*([A-Za-z]+\s\d{1,2}(?:st|nd|rd|th)?(?:,|\s)\s*\d{4})',
+        'origin_to_destination': r'(?:from|origin is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+))\s+to\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\b(?=\s+(?:my|passport|I)|\.|\s|$)',
+        'passport_number': r'(?:passport number is|passport number:)\s*([A-Za-z0-9]+)',
+        'seat_preference': r'(?:seat preference is|prefer a)\s*(window|aisle|middle)(?:\s+seat)?',
+        'meal_preference': r'(?:meal preference is|would like)\s*([A-Za-z\s]+?)(?=\s+(?:during|to|carry|number|kilograms|$))'
     }
 
-    for entity in entities:
-        if entity['entity'] == 'B-PER':
-            user_data['username'] = entity['word']
-        elif entity['entity'] == 'B-DATE':
-            user_data['dob'] = entity['word']
-        # Add other entity extractions based on your model and requirements here
-
-    # Custom parsing for origin and destination
-    parts = text.split()
-    for i, part in enumerate(parts):
-        if part.lower() in ["from", "origin"]:
-            user_data['origin'] = parts[i + 1]  # Next part is the origin
-        elif part.lower() == "to":
-            user_data['destination'] = parts[i + 1]  # Next part is the destination
+    user_data = {}
+    for field, pattern in patterns.items():
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            if field == 'origin_to_destination':
+                user_data['origin'] = match.group(1).strip()
+                user_data['destination'] = match.group(2).strip()
+            else:
+                value = match.group(1).strip()
+                user_data[field] = value
+        else:
+            user_data[field] = None
 
     return user_data
 
@@ -250,27 +244,45 @@ def select_flight():
             'username': user_data.get('username', 'Unknown'),
             'flight_number': selected_flight_details.get('flight_number', 'Unknown'),
             'flight_name': selected_flight_details.get('flight_name', 'Unknown'),
-            'origin_to_destination': f"{user_data.get('origin')} to {user_data.get('destination')}",
+            'origin_to_destination': f"{user_data.get('origin', 'Unknown')} to {user_data.get('destination', 'Unknown')}",
             'departure_date': selected_flight_details.get('departure_date', 'Unknown'),
-            'seat_preference': selected_flight_details.get('seat_preference', 'Unknown'),
-            'meal_preference': selected_flight_details.get('meal_preference', 'Unknown'),
+            'seat_preference': user_data.get('seat_preference', 'No seat preference specified.'),
+            'meal_preference': user_data.get('meal_preference', 'No meal preference specified.')
         }
 
         # Send confirmation email
-        sender_email = os.getenv('EMAIL_USER')
-        sender_password = os.getenv('EMAIL_PASS')
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+
+        if not sender_email or not sender_password:
+            flash("Email credentials not found. Please configure 'secure.env'.")
+            return redirect(request.url)
 
         email_sent = send_confirmation_email(sender_email, sender_password, recipient_email, itinerary_details)
 
         if email_sent:
-            flash("Flight booked successfully! A confirmation email has been sent.")
+            # Store itinerary and recipient email in session
+            session['itinerary_details'] = itinerary_details
+            session['recipient_email'] = recipient_email
+            return redirect(url_for('confirmation'))
         else:
             flash("Failed to send confirmation email.")
+            return redirect(request.url)
 
-        return redirect(url_for('upload_audio'))
-
+    # GET request
+    text = session.get('text', '')
     available_flights = session.get('available_flights', [])
-    return render_template('select_flight.html', flights=available_flights)
+    user_data = session.get('user_data', {})
 
-if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    return render_template('flights.html', text=text, flights=available_flights, user_data=user_data)
+
+# Route for Confirmation Page
+@app.route('/confirmation', methods=['GET'])
+def confirmation():
+    itinerary = session.get('itinerary_details', {})
+    recipient_email = session.get('recipient_email', '')
+    return render_template('confirmation.html', itinerary=itinerary, recipient_email=recipient_email)
+
+if _name_ == '_main_':
+    load_dotenv()
+    app.run(debug=True)
