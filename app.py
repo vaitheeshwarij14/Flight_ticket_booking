@@ -10,7 +10,7 @@ import speech_recognition as sr
 import requests
 import soundfile as sf
 
-app = Flask(_name_)
+app = Flask(__name__)
 app.secret_key = 'pgay wtpq kpiq vlze'  # Replace with a secure secret key
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Max 16MB upload
@@ -283,6 +283,6 @@ def confirmation():
     recipient_email = session.get('recipient_email', '')
     return render_template('confirmation.html', itinerary=itinerary, recipient_email=recipient_email)
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     load_dotenv()
     app.run(debug=True)
