@@ -21,7 +21,6 @@
                             <th>Select</th>
                             <th>Flight Number</th>
                             <th>Flight Name</th>
-                            <th>Departure Date</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -30,7 +29,6 @@
                             <td><input type="radio" name="flight" value="{{ flight.flight_number }}" required></td>
                             <td>{{ flight.flight_number }}</td>
                             <td>{{ flight.flight_name }}</td>
-                            <td>{{ flight.departure_date }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
