@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 import speech_recognition as sr
 import requests
 import soundfile as sf
+import spacy
 
 app = Flask(__name__)
 app.secret_key = 'pgay wtpq kpiq vlze'  # Replace with a secure secret key
@@ -60,29 +61,58 @@ def voice_to_text(audio_file_path):
             print(f"Could not request results from Google Speech Recognition service; {e}")
             return None
 
-# Function to extract user data from text with improved regex patterns
+# Load spaCy model
+nlp = spacy.load("en_core_web_sm")
+
+# Function to extract user data using spaCy
 def extract_user_data(text):
-    patterns = {
-        'username': r'(?:my name is|username is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:and|I|born|,|\.|$))',
-        'dob': r'(?:born on|date of birth is|date of birth)\s*([A-Za-z]+\s\d{1,2}(?:st|nd|rd|th)?(?:,|\s)\s*\d{4})',
-        'origin_to_destination': r'(?:from|origin is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\s+to\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:my|passport|I)|\.|\s|$)',
-        'passport_number': r'(?:passport number is|passport number:)\s*([A-Za-z0-9]+)',
-        'seat_preference': r'(?:seat preference is|prefer a)\s*(window|aisle|middle)(?:\s+seat)?',
-        'meal_preference': r'(?:meal preference is|would like)\s*([A-Za-z\s]+?)(?=\s+(?:during|to|carry|number|kilograms|$))'
+    doc = nlp(text)
+    user_data = {
+        'username': None,
+        'dob': None,
+        'origin': None,
+        'destination': None,
+        'passport_number': None,
+        'seat_preference': None,
+        'meal_preference': None,
+        'baggage': None
     }
 
-    user_data = {}
-    for field, pattern in patterns.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            if field == 'origin_to_destination':
-                user_data['origin'] = match.group(1).strip()
-                user_data['destination'] = match.group(2).strip()
-            else:
-                value = match.group(1).strip()
-                user_data[field] = value
-        else:
-            user_data[field] = None
+    # Extract entities recognized by spaCy
+    for ent in doc.ents:
+        if ent.label_ == "PERSON" and not user_data['username']:
+            user_data['username'] = ent.text
+        elif ent.label_ == "DATE" and not user_data['dob']:
+            user_data['dob'] = ent.text
+        elif ent.label_ == "GPE":
+            if not user_data['origin']:
+                user_data['origin'] = ent.text
+            elif not user_data['destination']:
+                user_data['destination'] = ent.text
+
+    # Custom extraction for passport number
+    passport_pattern = re.compile(r'(passport number is|passport number:)\s*([A-Za-z0-9]+)', re.IGNORECASE)
+    passport_match = passport_pattern.search(text)
+    if passport_match:
+        user_data['passport_number'] = passport_match.group(2).strip()
+
+    # Custom extraction for seat preference
+    seat_pattern = re.compile(r'(prefer a|seat preference is)\s*(window|aisle|middle)', re.IGNORECASE)
+    seat_match = seat_pattern.search(text)
+    if seat_match:
+        user_data['seat_preference'] = seat_match.group(2).strip().lower()
+
+    # Custom extraction for meal preference
+    meal_pattern = re.compile(r'(vegetarian|non-vegetarian|vegan|gluten-free|halal)', re.IGNORECASE)
+    meal_match = meal_pattern.search(text)
+    if meal_match:
+        user_data['meal_preference'] = meal_match.group(1).strip().lower()
+
+    # Custom extraction for baggage
+    baggage_pattern = re.compile(r'carry extra\s*(\d+)\s*(kilograms|kg|kgs)', re.IGNORECASE)
+    baggage_match = baggage_pattern.search(text)
+    if baggage_match:
+        user_data['baggage'] = f"{baggage_match.group(1)} {baggage_match.group(2)}"
 
     return user_data
 
@@ -140,6 +170,7 @@ Origin to Destination: {itinerary_details['origin_to_destination']}
 Departure Date: {itinerary_details['departure_date']}
 Seat Preference: {itinerary_details['seat_preference']}
 Meal Preference: {itinerary_details['meal_preference']}
+Extra Baggage: {itinerary_details.get('baggage', 'No extra baggage carried.')}
 
 Thank you for choosing our service!
 
@@ -186,7 +217,7 @@ def upload_audio():
                 flash('Could not convert audio to text.')
                 return redirect(request.url)
 
-            # Extract user data
+            # Extract user data using spaCy
             user_data = extract_user_data(text)
             required_fields = ['username', 'origin', 'destination', 'passport_number']
             missing_fields = [field for field in required_fields if not user_data.get(field)]
@@ -247,7 +278,8 @@ def select_flight():
             'origin_to_destination': f"{user_data.get('origin', 'Unknown')} to {user_data.get('destination', 'Unknown')}",
             'departure_date': selected_flight_details.get('departure_date', 'Unknown'),
             'seat_preference': user_data.get('seat_preference', 'No seat preference specified.'),
-            'meal_preference': user_data.get('meal_preference', 'No meal preference specified.')
+            'meal_preference': user_data.get('meal_preference', 'No meal preference specified.'),
+            'baggage': user_data.get('baggage', 'No extra baggage carried.')
         }
 
         # Send confirmation email
