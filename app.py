@@ -23,7 +23,7 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 # Load environment variables
-dotenv_path = os.path.join(os.path.dirname(_file_), 'secure.env')
+dotenv_path = os.path.join(os.path.dirname(__file__), 'secure.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 else:
@@ -65,7 +65,7 @@ def extract_user_data(text):
     patterns = {
         'username': r'(?:my name is|username is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:and|I|born|,|\.|$))',
         'dob': r'(?:born on|date of birth is|date of birth)\s*([A-Za-z]+\s\d{1,2}(?:st|nd|rd|th)?(?:,|\s)\s*\d{4})',
-        'origin_to_destination': r'(?:from|origin is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+))\s+to\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\b(?=\s+(?:my|passport|I)|\.|\s|$)',
+        'origin_to_destination': r'(?:from|origin is)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\s+to\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)*?)\b(?=\s+(?:my|passport|I)|\.|\s|$)',
         'passport_number': r'(?:passport number is|passport number:)\s*([A-Za-z0-9]+)',
         'seat_preference': r'(?:seat preference is|prefer a)\s*(window|aisle|middle)(?:\s+seat)?',
         'meal_preference': r'(?:meal preference is|would like)\s*([A-Za-z\s]+?)(?=\s+(?:during|to|carry|number|kilograms|$))'
