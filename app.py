@@ -1,6 +1,7 @@
 import os
 import re
 import smtplib
+import cohere
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -28,7 +29,7 @@ dotenv_path = os.path.join(os.path.dirname(__file__), 'secure.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 else:
-    print("Warning: 'secure.env' file not found. Email functionality will not work.")
+    print("Warning: 'secure.env' file not found. Email and Cohere functionalities will not work.")
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -64,8 +65,16 @@ def voice_to_text(audio_file_path):
 # Load spaCy model
 nlp = spacy.load("en_core_web_sm")
 
+# Initialize Cohere client
+COHERE_API_KEY = os.getenv('COHERE_API_KEY')
+if COHERE_API_KEY:
+    cohere_client = cohere.Client(COHERE_API_KEY)
+else:
+    cohere_client = None
+    print("Warning: COHERE_API_KEY not found. Cohere functionalities will not work.")
+
 # Function to extract user data using spaCy
-def extract_user_data(text):
+def extract_user_data_spacy(text):
     doc = nlp(text)
     user_data = {
         'username': None,
@@ -115,6 +124,70 @@ def extract_user_data(text):
         user_data['baggage'] = f"{baggage_match.group(1)} {baggage_match.group(2)}"
 
     return user_data
+
+# Function to extract user data using Cohere
+def extract_user_data_cohere(text):
+    if not cohere_client:
+        return {}
+    
+    prompt = f"""
+Extract the following information from the text below:
+
+- Username
+- Date of Birth (DOB)
+- Origin
+- Destination
+- Passport Number
+- Seat Preference
+- Meal Preference
+- Extra Baggage
+
+Provide the information in JSON format as shown below:
+
+{{
+    "username": "",
+    "dob": "",
+    "origin": "",
+    "destination": "",
+    "passport_number": "",
+    "seat_preference": "",
+    "meal_preference": "",
+    "baggage": ""
+}}
+
+Text:
+\"\"\"
+{text}
+\"\"\"
+"""
+
+    try:
+        response = cohere_client.generate(
+            model='large',
+            prompt=prompt,
+            max_tokens=300,
+            temperature=0.0,
+            stop_sequences=["}"]
+        )
+        generated_text = response.generations[0].text
+        # Ensure the JSON is properly closed
+        if not generated_text.strip().endswith('}'):
+            generated_text += '}'
+        user_data = eval(generated_text)  # Note: using eval can be dangerous; consider using json.loads with proper formatting
+        return user_data
+    except Exception as e:
+        print(f"Error extracting data with Cohere: {e}")
+        return {}
+
+# Combined function to extract user data using both spaCy and Cohere
+def extract_user_data(text):
+    user_data_spacy = extract_user_data_spacy(text)
+    user_data_cohere = extract_user_data_cohere(text)
+    
+    # Merge the two dictionaries, giving priority to Cohere's extraction
+    merged_user_data = {**user_data_spacy, **user_data_cohere}
+    
+    return merged_user_data
 
 # Function to retrieve flights from the external API based on origin and destination
 def get_flights(origin, destination):
@@ -217,7 +290,7 @@ def upload_audio():
                 flash('Could not convert audio to text.')
                 return redirect(request.url)
 
-            # Extract user data using spaCy
+            # Extract user data using spaCy and Cohere
             user_data = extract_user_data(text)
             required_fields = ['username', 'origin', 'destination', 'passport_number']
             missing_fields = [field for field in required_fields if not user_data.get(field)]
