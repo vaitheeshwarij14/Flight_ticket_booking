@@ -1,6 +1,8 @@
 Flask
-SpeechRecognition
-requests
 python-dotenv
+werkzeug
+speechrecognition
+requests
 soundfile
-numpy
+spacy
+cohere
