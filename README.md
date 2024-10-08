@@ -1,4 +1,5 @@
-# Flight Ticket Booking AI
+
+# AI Flight Ticket Booking
 
 ## Overview
 
@@ -16,8 +17,8 @@ Before you begin, ensure you have the following installed:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/vaitheeshwarij14/Flight_ticket_booking.git
-   cd Flight_ticket_booking
+   git clone https://github.com/vaitheeshwarij14/AI_Flight_ticket_booking.git
+   cd AI_Flight_ticket_booking
    ```
 
 2. Install the required packages:
@@ -34,8 +35,7 @@ Before you begin, ensure you have the following installed:
      ```plaintext
      SENDER_EMAIL=<Sender_Email_id>
      SENDER_PASSWORD=<Sender_password>
-     COHERE_API_KEY=<Sender_cohere_api_key>
-
+     COHERE_API_KEY=<Cohere_API_Key>
      ```
 
 ## Usage
@@ -52,28 +52,26 @@ Before you begin, ensure you have the following installed:
 
 Below are some images related to the project:
 
-Run app.py
+1. **Run app.py**
 
-![Image 1](images/img1.png)
+   ![Image 1](images/img1.png)
 
+2. **Choose the audio file and click on Upload and Process.**
 
-Choose the audio file and click on the upload and process.
+   ![Image 2](images/img2.png)
 
+3. **Choose a flight from the available options, provide the recipient's email address, and click Book Flight and Send Confirmation.**
 
-![Image 2](images/img2.png)
+   ![Image 3](images/img3.png)
 
+4. **This window confirms that your booking is complete and reminds you to check your email for the confirmation details.**
 
-Choose a flight from the available options and provide the recipient's email address and click on the book flight and send confirmation.
+   ![Image 4](images/img4.png)
 
-![Image 3](images/img3.png)
+5. **This is the confirmation email that you will receive.**
 
+   ![Image 5](images/img5.png)
 
-This window confirms that your booking is complete and reminds you to check your email for the confirmation details. 
+## Documentation
 
-![Image 4](images/img4.png)
-
-
-This is the confirmation email that you will receive.
-
-![Image 5](images/img5.png)
-
+For further details, refer to the project documentation [here](https://docs.google.com/document/d/1J8zje3sAPO5qVAIn9A5xuCSgcBzc2G40EDChHBkAsis/edit#heading=h.nnycgcqdyw4f).
