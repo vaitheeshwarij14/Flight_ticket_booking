@@ -34,6 +34,7 @@ Before you begin, ensure you have the following installed:
      ```plaintext
      SENDER_EMAIL=<Sender_Email_id>
      SENDER_PASSWORD=<Sender_password>
+     COHERE_API_KEY=<Sender_cohere_api_key>
 
      ```
 
@@ -51,22 +52,28 @@ Before you begin, ensure you have the following installed:
 
 Below are some images related to the project:
 
-Add the voice file
+Run app.py
 
-![Image 1](images/image1.png)
-
-
-Enter your Email address and click on the flight you want to book
-
-![Image 2](images/image2.png)
+![Image 1](images/img1.png)
 
 
-Confirmation Message
-
-![Image 3](images/image3.png)
+Choose the audio file and click on the upload and process.
 
 
-Confirmation Email 
+![Image 2](images/img2.png)
 
-![Image 4](images/image4.png)
+
+Choose a flight from the available options and provide the recipient's email address and click on the book flight and send confirmation.
+
+![Image 3](images/img3.png)
+
+
+This window confirms that your booking is complete and reminds you to check your email for the confirmation details. 
+
+![Image 4](images/img4.png)
+
+
+This is the confirmation email that you will receive.
+
+![Image 5](images/img5.png)
 
