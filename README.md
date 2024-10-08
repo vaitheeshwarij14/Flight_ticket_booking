@@ -17,8 +17,8 @@ Before you begin, ensure you have the following installed:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/vaitheeshwarij14/AI_Flight_ticket_booking.git
-   cd AI_Flight_ticket_booking
+   git clone https://github.com/vaitheeshwarij14/Flight_ticket_booking.git
+   cd Flight_ticket_booking
    ```
 
 2. Install the required packages:
