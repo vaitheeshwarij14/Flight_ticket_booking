@@ -3,7 +3,9 @@
 
 ## Overview
 
-This project implements an Agentic AI Workflow for Voice-Based Flight Ticket Booking. The application takes an audio file containing flight booking details, processes it, and confirms the availability of flights.
+This project implements AI Workflow for Voice-Based Flight Ticket Booking. The application takes an audio file containing flight booking details, processes it, and confirms the availability of flights.
+
+You can try the live application here: [AI Flight Ticket Booking](https://flight-ticket-bookingg.onrender.com/)
 
 ## Prerequisites
 
